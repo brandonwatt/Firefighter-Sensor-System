@@ -1,0 +1,57 @@
+# Simple example of reading the MCP3008 analog input channels and printing
+# them all out.
+# Author: Tony DiCola
+# License: Public Domain
+import time
+
+# Import SPI library (for hardware SPI) and MCP3008 library.
+import Adafruit_GPIO.SPI as SPI
+import Adafruit_MCP3008
+
+# Hardware SPI configuration:
+SPI_PORT   = 0
+SPI_DEVICE = 0
+mcp = Adafruit_MCP3008.MCP3008(spi=SPI.SpiDev(SPI_PORT, SPI_DEVICE))
+
+# Calculate initial M value
+Voffset = 0.05
+SensiCode = 12.97
+TIAGain = 100
+M = SensiCode * TIAGain * 1/1000000
+
+
+
+##print('Reading MCP3008 values, press Ctrl-C to quit...')
+# Print nice channel column headers.
+#print('| {0:>4} | {1:>4} | {2:>4} | {3:>4} | {4:>4} | {5:>4} | {6:>4} | {7:>4} |'.format(*range(8)))
+#print('-' * 57)
+# Main program loop.
+while True:
+    
+    # The read_adc function will get the value of the specified channel
+    Vreg = mcp.read_adc(0) / 1024.0 * 3.3
+    Vtemp = mcp.read_adc(1) / 1024.0 * 3.3
+    Vref = mcp.read_adc(2) / 1024.0 * 3.3
+    Vgas = mcp.read_adc(3) / 1024.0 * 3.3
+
+    # Calculate temperture in C from Vreg and Vtemp
+    Temp = ((87.0 / Vreg) * Vtemp - 18.0)
+
+    if Temp > -20.0 and Temp <= 20.0:
+        Tc = -0.0033
+    elif Temp > 20.0 and Temp < 40.0:
+        Tc = 0.0026
+
+    Cx = 1 / M * (Vgas - Vref)
+
+    Mc = M * (1 + Tc * (Temp - 20))
+
+    Cxc = 1 / Mc * (Vgas - Vref)
+
+    Temp = Temp * 1.8 + 32
+
+    # output calculated values
+    print('Temp: {0:5.2f} C, Normal ppm: {1:7.2f}, Compensated ppm: {2:7.2f}'.format(Temp, Cx, Cxc))
+          
+    # Pause a second.
+    time.sleep(1)
